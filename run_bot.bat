@@ -1,0 +1,1 @@
+start python C:\mine\mybot\bot.py
