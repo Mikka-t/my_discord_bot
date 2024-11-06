@@ -8,9 +8,11 @@ import json
 import psutil
 from functools import lru_cache
 
+import openai
 
 # -*- coding: utf-8 -*-
-time.sleep(8)
+time.sleep(2)
+
 intents = discord.Intents.default()
 intents.message_content = True
 
@@ -18,6 +20,11 @@ client = discord.Client(intents=intents)
 with open("../secret.txt") as f:
     passwd = f.read()
 TOKEN = passwd
+
+# CHATGPT API
+with open("../secret_openai.txt") as f:
+    openai.api_key = f.read().strip()
+conversation_history = []
 
 @client.event
 async def on_ready():
@@ -54,12 +61,83 @@ def P(a,b,num):
         ret = 0
     return ret
 
+
 @client.event
 async def on_message(message):
+    args = message.content.split()
+
+
+    # if "ping" in " ".join(args) or "Ping" in " ".join(args):
+    #     pingtime = time.time()
+    #     with open('C:/mine/ping.json', 'w') as f:
+    #         json.dump({"pingtime":pingtime}, f)
+    # if args[0] == 'py' and args[1] == 'ping':
+    #     await message.channel.send("Pong!")
+    # elif "Pong" in " ".join(args) or "pong" in " ".join(args):
+    #     pongtime = time.time()
+    #     with open('C:/mine/ping.json') as f:
+    #         pingtime = json.load(f)['pingtime']
+    #     await message.channel.send(f"ping time was: {((pongtime-pingtime)//0.001)/1000} s")
+        
+
+
+              
     if not message.author.bot:
-        args = message.content.split()
         print(message.content)
+        with open('./log_20221209_.txt', 'a', encoding='UTF-8') as fw:
+            if len(message.content) > 0:
+                if message.content[0] != "[":
+                    fw.write(message.content+"\n")
         if len(args)>0:
+
+            conversation_history.append({"role": "user", "content": message.content})
+            if len(conversation_history) > 10:
+                conversation_history.pop(0)
+            
+            # check it's not "roll"
+            if "roll" not in " ".join(args):
+                flag_response = False
+                # 1/10 probability to reply
+                if random.random() < 0.1:
+                    flag_response = True
+                # "モースク"と呼ばれたら必ず返信
+                if "モースク" in message.content:
+                    flag_response = True
+                # 自分がメンションされたら返信
+                if client.user in message.mentions:
+                    flag_response = True
+                # _ で始まるメッセージは返信
+                if message.content[0] == "_":
+                    flag_response = True
+                # URLだけのメッセージなら無視
+                if len(args) == 1 and args[0].startswith("http"):
+                    flag_response = False
+
+                if flag_response:
+                    try:
+                        response = openai.ChatCompletion.create(
+                            model="gpt-4o",
+                            messages=[
+                                {"role": "system", "content": "あなたは日本語を話します。単純なbotです。知能が低いです。\n以下は、会話の履歴です。"}
+                            ] + conversation_history +
+                            [  
+                                {"role": "user", "content": f"以上が会話の履歴です。\n単純な、一言の日本語で返してください。たまにひどい言葉を返してください。例は次の通りです。「謝って」:「ごめんね」。「ごめんね」:「だめ」。「いいよ」:「ありがとう」。「ありがとう」:「どういたしまして」。「だめ」:「なんで」。「ありがとう」:「だめ」。「どういたしまして」:「だめ」。\nでは、次のメッセージに答えてください。{message.content}"}
+                            ]
+                        )
+                        reply = response.choices[0].message['content']
+                        # 末尾に。がついている場合は削除
+                        if reply[-1] == "。":
+                            reply = reply[:-1]
+                        conversation_history.append({"role": "assistant", "content": reply})
+                        if len(conversation_history) > 10:
+                            conversation_history.pop(0)
+                        await message.channel.send(reply)
+                    except Exception as e:
+                        await message.channel.send("Sorry, there was an error processing your request.")
+                        print(f"Error with OpenAI API: {e}")
+                    
+
+
             if (args[0] == 'roll' or args[0] == '-roll') and len(args) == 2:
                 tar = args[1].split('d')
                 if len(tar) == 2:
@@ -86,6 +164,8 @@ async def on_message(message):
                         ans += "  ({:>2d} %)".format(int((per*100)//1))
                     print(ans)
                     await message.channel.send(ans)
+            
+            
 
             if args[0] == 'generateimage':
                 print(args)
@@ -147,8 +227,6 @@ async def on_message(message):
                 with open('C:/mine/timer.json', 'w') as f:
                     json.dump({"working":True}, f)
                 await message.channel.send("動作開始！")
-
-                    
 
 
             # channel = client.get_channel(CHANNELID)
