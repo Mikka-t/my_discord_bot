@@ -89,6 +89,11 @@ async def on_message(message):
                 if message.content[0] != "[":
                     fw.write(message.content+"\n")
         if len(args)>0:
+            # shutdown
+            if args[0] == '_shutdown_mozg':
+                await message.channel.send("ｧ…")
+                await client.close()
+                exit()
             
             # check it's not "roll" or "generate"
             tmp = " ".join(args)
