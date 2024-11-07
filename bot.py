@@ -89,14 +89,12 @@ async def on_message(message):
                 if message.content[0] != "[":
                     fw.write(message.content+"\n")
         if len(args)>0:
-
-            conversation_history.append({"role": "user", "content": message.content})
-            if len(conversation_history) > 10:
-                conversation_history.pop(0)
             
-            # check it's not "roll"
-            if "roll" not in " ".join(args):
+            # check it's not "roll" or "generate"
+            tmp = " ".join(args)
+            if "roll" not in tmp and "generate" not in tmp and "image" not in tmp:
                 flag_response = False
+                flag_history = True
                 # 1/10 probability to reply
                 if random.random() < 0.1:
                     flag_response = True
@@ -112,6 +110,12 @@ async def on_message(message):
                 # URLだけのメッセージなら無視
                 if len(args) == 1 and args[0].startswith("http"):
                     flag_response = False
+                    flag_history = False
+                
+                if flag_history:
+                    conversation_history.append({"role": "user", "content": message.content})
+                    if len(conversation_history) > 10:
+                        conversation_history.pop(0)
 
                 if flag_response:
                     try:
