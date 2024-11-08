@@ -83,7 +83,8 @@ async def on_message(message):
 
               
     if not message.author.bot:
-        print(message.content)
+        random_num = random.random()
+        print(message.content, random_num)
         with open('./log_20221209_.txt', 'a', encoding='UTF-8') as fw:
             if len(message.content) > 0:
                 if message.content[0] != "[":
@@ -100,8 +101,8 @@ async def on_message(message):
             if "roll" not in tmp and "generate" not in tmp and "image" not in tmp:
                 flag_response = False
                 flag_history = True
-                # 1/10 probability to reply
-                if random.random() < 0.1:
+                # 5% probability to reply
+                if random_num < 0.05:
                     flag_response = True
                 # "モースク"と呼ばれたら必ず返信
                 if "モースク" in message.content:
