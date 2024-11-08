@@ -30,6 +30,19 @@ conversation_history = []
 async def on_ready():
     print("起動")
 
+HISTORY_FILE_PATH = "./conversation_history.json"
+def load_conversation_history():
+    if os.path.exists(HISTORY_FILE_PATH):
+        with open(HISTORY_FILE_PATH, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    return []
+
+def save_conversation_history():
+    with open(HISTORY_FILE_PATH, 'w', encoding='utf-8') as f:
+        json.dump(conversation_history, f, ensure_ascii=False)
+
+conversation_history = load_conversation_history()
+
 def roll(arr):
     a = int(arr[0])
     b = int(arr[1])
@@ -122,6 +135,7 @@ async def on_message(message):
                     conversation_history.append({"role": "user", "content": message.content})
                     if len(conversation_history) > 10:
                         conversation_history.pop(0)
+                    save_conversation_history()
 
                 if flag_response:
                     try:
@@ -131,7 +145,7 @@ async def on_message(message):
                                 {"role": "system", "content": "あなたは日本語を話します。単純なbotです。知能が低いです。\n以下は、会話の履歴です。"}
                             ] + conversation_history +
                             [  
-                                {"role": "user", "content": f"以上が会話の履歴です。\n単純な、一言の日本語で返してください。たまにひどい言葉を返してください。例は次の通りです。「謝って」:「ごめんね」。「ごめんね」:「だめ」。「いいよ」:「ありがとう」。「ありがとう」:「どういたしまして」。「だめ」:「なんで」。「ありがとう」:「だめ」。「どういたしまして」:「だめ」。\nでは、次のメッセージに答えてください。{message.content}"}
+                                {"role": "user", "content": f"以上が会話の履歴です。\n単純な、一言の日本語で返してください。たまにひどい言葉を返してください。一言の例は次の通りです。「ごめんね」、「だめ」、「やだ」、「いいよ」、「そんな…」、「草」、「そうだよ」。文脈に合わせた一言を返してください。\nでは、次のメッセージに答えてください。{message.content}"}
                             ]
                         )
                         reply = response.choices[0].message['content']
@@ -141,6 +155,7 @@ async def on_message(message):
                         conversation_history.append({"role": "assistant", "content": reply})
                         if len(conversation_history) > 10:
                             conversation_history.pop(0)
+                        save_conversation_history()
                         await message.channel.send(reply)
                     except Exception as e:
                         await message.channel.send("Sorry, there was an error processing your request.")
