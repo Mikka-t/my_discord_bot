@@ -1,1 +1,1 @@
-start python C:\mine\mybot\bot.py
+start python C:\Users\Mitani\Desktop\working\botpack\mybot\bot.py
