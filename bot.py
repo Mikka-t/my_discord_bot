@@ -7,6 +7,7 @@ import time
 import json
 import psutil
 from functools import lru_cache
+import base64
 
 import openai
 
@@ -23,8 +24,11 @@ TOKEN = passwd
 
 # CHATGPT API
 with open("../secret_openai.txt") as f:
-    openai.api_key = f.read().strip()
+    # openai.api_key = f.read().strip()
+    client_openai = openai.OpenAI(api_key=f.read().strip())
 conversation_history = []
+
+
 
 @client.event
 async def on_ready():
@@ -114,27 +118,82 @@ async def on_message(message):
                     flag_response = False
 
                 if flag_response:
-                    try:
-                        response = openai.ChatCompletion.create(
-                            model="gpt-4o",
-                            messages=[
-                                {"role": "system", "content": "あなたは日本語を話します。単純なbotです。知能が低いです。\n以下は、会話の履歴です。"}
-                            ] + conversation_history +
-                            [  
-                                {"role": "user", "content": f"以上が会話の履歴です。\n単純な、一言の日本語で返してください。たまにひどい言葉を返してください。例は次の通りです。「謝って」:「ごめんね」。「ごめんね」:「だめ」。「いいよ」:「ありがとう」。「ありがとう」:「どういたしまして」。「だめ」:「なんで」。「ありがとう」:「だめ」。「どういたしまして」:「だめ」。\nでは、次のメッセージに答えてください。{message.content}"}
-                            ]
-                        )
-                        reply = response.choices[0].message['content']
-                        # 末尾に。がついている場合は削除
-                        if reply[-1] == "。":
-                            reply = reply[:-1]
-                        conversation_history.append({"role": "assistant", "content": reply})
-                        if len(conversation_history) > 10:
-                            conversation_history.pop(0)
-                        await message.channel.send(reply)
-                    except Exception as e:
-                        await message.channel.send("Sorry, there was an error processing your request.")
-                        print(f"Error with OpenAI API: {e}")
+                    if len(message.attachments) > 0:
+                        num_img = len(message.attachments)
+                        # 画像が複数枚の場合は、それぞれに返答し、まとめて返信する
+                        responses = []
+                        for index, attachment in enumerate(message.attachments, start=1):
+                            if attachment.content_type.startswith("image"):
+                                # 画像のダウンロード
+                                image_data = await attachment.read()
+                                # 画像をBase64エンコード
+                                image_base64 = base64.b64encode(image_data).decode('utf-8')
+                                try:
+
+                                    # response = openai.ChatCompletion.create(
+                                    response = client_openai.chat.completions.create(
+                                        model="gpt-4o",
+                                        messages=[
+                                            {
+                                                "role":"user",
+                                                "content":[
+                                                    {
+                                                        "type": "text",
+                                                        "text": f"画像を解析してください。指示が無ければ、外国語の文章が書かれていたら日本語に翻訳してください。\n日本語の文章や文章でないものが書かれていたら、簡単な感想のみを一言で返してください。その場合は敬語は使用せず、馴れ馴れしい、ユーモラスな文章で返してください。\nユーザーの指示は以下の通りです:{message.content}"
+                                                    },   
+                                                    {
+                                                        "type": "text",
+                                                        "text": f"もし感想をメッセージに含める場合は、以下の文章のような雰囲気、雑さで話してください。「謝って」:「ごめんね」。「ごめんね」:「だめ」。「いいよ」:「ありがとう」。「ありがとう」:「どういたしまして」。「だめ」:「なんで」。「ありがとう」:「だめ」。「どういたしまして」:「だめ」。"
+                                                    },
+                                                    {    
+                                                        "type": "image_url",
+                                                        "image_url":
+                                                        {
+                                                            "url": f"data:image/png;base64,{image_base64}"
+                                                        } 
+                                                    }
+                                                ]
+                                            }
+                                        ]
+                                    )
+                                    print(response)
+                                    # reply = response.choices[0].message['content']
+                                    reply = response.choices[0].message.content
+                                    print(reply)
+                                    responses.append(reply)
+
+                                except Exception as e:
+                                    print(f"Error with OpenAI API: {e}")
+                        if len(responses) > 0:
+                            # 1枚目、2枚目、と返信
+                            response_test = ""
+                            for index, response in enumerate(responses, start=1):
+                                response_test += f"{response}\n"
+                            await message.channel.send(response_test)
+
+
+                    else:
+                        try:
+                            response = openai.ChatCompletion.create(
+                                model="gpt-4o",
+                                messages=[
+                                    {"role": "system", "content": "あなたは日本語を話します。単純なbotです。知能が低いです。\n以下は、会話の履歴です。"}
+                                ] + conversation_history +
+                                [  
+                                    {"role": "user", "content": f"以上が会話の履歴です。\n単純な、一言の日本語で返してください。たまにひどい言葉を返してください。例は次の通りです。「謝って」:「ごめんね」。「ごめんね」:「だめ」。「いいよ」:「ありがとう」。「ありがとう」:「どういたしまして」。「だめ」:「なんで」。「ありがとう」:「だめ」。「どういたしまして」:「だめ」。\nでは、次のメッセージに答えてください。{message.content}"}
+                                ]
+                            )
+                            reply = response.choices[0].message['content']
+                            # 末尾に。がついている場合は削除
+                            if reply[-1] == "。":
+                                reply = reply[:-1]
+                            conversation_history.append({"role": "assistant", "content": reply})
+                            if len(conversation_history) > 10:
+                                conversation_history.pop(0)
+                            await message.channel.send(reply)
+                        except Exception as e:
+                            await message.channel.send("Sorry, there was an error processing your request.")
+                            print(f"Error with OpenAI API: {e}")
                     
 
 
