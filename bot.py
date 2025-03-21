@@ -42,6 +42,14 @@ def save_conversation_history():
         json.dump(conversation_history, f, ensure_ascii=False)
 
 conversation_history = load_conversation_history()
+# conversation_historyの中身を初回だけ表示
+if len(conversation_history) > 0:
+    print("Conversation history:")
+    for message in conversation_history:
+        print(f"{message['role']}: {message['content']}")
+else:
+    print("Conversation history is empty.")
+    
 
 def roll(arr):
     a = int(arr[0])
@@ -108,14 +116,18 @@ async def on_message(message):
                 await message.channel.send("ｧ…")
                 await client.close()
                 exit()
+
+            if args[0] == '_conversation_history':
+                history_str = "\n".join([f"{msg['role']}: {msg['content']}" for msg in conversation_history])
+                await message.channel.send(history_str)
             
             # check it's not "roll" or "generate"
             tmp = " ".join(args)
-            if "roll" not in tmp and "generate" not in tmp and "image" not in tmp:
+            if "roll" not in tmp and "generate" not in tmp and "image" not in tmp and "_conversation_history" not in tmp:
                 flag_response = False
                 flag_history = True
                 # 5% probability to reply
-                if random_num < 0.05:
+                if random_num < 0.025:
                     flag_response = True
                 # "モースク"と呼ばれたら必ず返信
                 if "モースク" in message.content:
@@ -132,29 +144,32 @@ async def on_message(message):
                     flag_history = False
                 
                 if flag_history:
-                    conversation_history.append({"role": "user", "content": message.content})
+                    conversation_history.append({"role": message.author.name, "content": message.content})
                     if len(conversation_history) > 10:
                         conversation_history.pop(0)
                     save_conversation_history()
 
                 if flag_response:
                     try:
+                        prompt_summary = "\n".join([f"name: {msg['role']}, message: {msg['content']}" for msg in conversation_history[:-1]])
                         response = openai.ChatCompletion.create(
                             model="gpt-4o",
                             messages=[
-                                {"role": "system", "content": "あなたは日本語を話します。単純なbotです。知能が低いです。\n以下は、会話の履歴です。"}
-                            ] + conversation_history +
+                                {"role": "system", "content": "あなたは日本語を話します。あなたはモースクという名前です。単純なbotです。知能が低いです。会話の履歴を見て、name: モースク の発言と同じ発言を3回以上連続で繰り返すのを避けます。"}
+                            ] + 
                             [  
-                                {"role": "user", "content": f"以上が会話の履歴です。\n単純な、一言の日本語で返してください。たまにひどい言葉を返してください。一言の例は次の通りです。「ごめんね」、「だめ」、「やだ」、「いいよ」、「そんな…」、「草」、「そうだよ」。文脈に合わせた一言を返してください。\nでは、次のメッセージに答えてください。{message.content}"}
+                                {"role": "user", "content": f"以下は会話の履歴です。\n{prompt_summary}\n以上が会話の履歴です。\n単純な、一言の日本語で返してください。たまにひどい言葉を返してください。一言の例は次の通りです。「ごめんね」、「だめ」、「やだ」、「いいよ」、「そんな…」、「草」、「そうだよ」。文脈に沿った一言を返してください。\nでは、次のメッセージに答えてください。{message.content}"}
                             ]
                         )
                         reply = response.choices[0].message['content']
                         # 末尾に。がついている場合は削除
                         if reply[-1] == "。":
                             reply = reply[:-1]
-                        conversation_history.append({"role": "assistant", "content": reply})
-                        if len(conversation_history) > 10:
+                        conversation_history.append({"role": "モースク", "content": reply})
+                        tmp_len = len(conversation_history)
+                        while tmp_len > 10:
                             conversation_history.pop(0)
+                            tmp_len = len(conversation_history)
                         save_conversation_history()
                         await message.channel.send(reply)
                     except Exception as e:
