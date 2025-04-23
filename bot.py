@@ -162,22 +162,40 @@ async def on_message(message):
                                 try:
 
                                     # response = openai.ChatCompletion.create(
-                                    response = client_openai.chat.completions.create(
-                                        model="gpt-4o",
-                                        messages=[
+                                    # response = client_openai.chat.completions.create(
+                                    #     model="gpt-4o",
+                                    #     messages=[
+                                    #         {
+                                    #             "role":"user",
+                                    #             "content":[
+                                    #                 {
+                                    #                     "type": "text",
+                                    #                     "text": f"画像を解析してください。指示が無ければ、外国語の文章が書かれていたら日本語に翻訳してください(感想やコメントは不要です)。\n日本語の文章や文章でないものが書かれていたら、簡単な感想のみを(馴れ馴れしい、ユーモラスな)一言で返してください。\n再掲ですが、翻訳の場合は感想やコメントは不要で、翻訳結果のみを返してください。\nユーザーの指示は以下の通りです:{message.content}"
+                                    #                 },   
+                                    #                 {    
+                                    #                     "type": "image_url",
+                                    #                     "image_url":
+                                    #                     {
+                                    #                         "url": f"data:image/png;base64,{image_base64}"
+                                    #                     } 
+                                    #                 }
+                                    #             ]
+                                    #         }
+                                    #     ]
+                                    # )
+                                    response = client_openai.responses.create(
+                                        model = "gpt-4o",
+                                        input = [
                                             {
                                                 "role":"user",
                                                 "content":[
                                                     {
-                                                        "type": "text",
+                                                        "type": "input_text",
                                                         "text": f"画像を解析してください。指示が無ければ、外国語の文章が書かれていたら日本語に翻訳してください(感想やコメントは不要です)。\n日本語の文章や文章でないものが書かれていたら、簡単な感想のみを(馴れ馴れしい、ユーモラスな)一言で返してください。\n再掲ですが、翻訳の場合は感想やコメントは不要で、翻訳結果のみを返してください。\nユーザーの指示は以下の通りです:{message.content}"
                                                     },   
                                                     {    
-                                                        "type": "image_url",
-                                                        "image_url":
-                                                        {
-                                                            "url": f"data:image/png;base64,{image_base64}"
-                                                        } 
+                                                        "type": "input_image",
+                                                        "image_url": f"data:image/png;base64,{image_base64}"
                                                     }
                                                 ]
                                             }
@@ -185,7 +203,7 @@ async def on_message(message):
                                     )
                                     print(response)
                                     # reply = response.choices[0].message['content']
-                                    reply = response.choices[0].message.content
+                                    reply = response.output_text   
                                     print(reply)
                                     responses.append(reply)
 
@@ -208,16 +226,21 @@ async def on_message(message):
                     else:
                         try:
                             prompt_summary = "\n".join([f"name: {msg['role']}, message: {msg['content']}" for msg in conversation_history[:-1]])
-                            response = openai.ChatCompletion.create(
-                                model="gpt-4o",
-                                messages=[
-                                    {"role": "system", "content": "あなたは日本語を話します。あなたはモースクという名前です。単純なbotです。知能が低いです。会話の履歴を見て、name: モースク の発言と同じ発言を3回以上連続で繰り返すのを避けます。"}
-                                ] + 
-                                [  
-                                    {"role": "user", "content": f"以下は会話の履歴です。\n{prompt_summary}\n以上が会話の履歴です。\n単純な、一言の日本語で返してください。たまにひどい言葉を返してください。一言の例は次の通りです。「ごめんね」、「だめ」、「やだ」、「いいよ」、「そんな…」、「草」、「そうだよ」。文脈に沿った一言を返してください。\nでは、次のメッセージに答えてください。{message.content}"}
-                                ]
+                            # response = openai.ChatCompletion.create(
+                            #     model="gpt-4o",
+                            #     messages=[
+                            #         {"role": "system", "content": "あなたは日本語を話します。あなたはモースクという名前です。単純なbotです。知能が低いです。会話の履歴を見て、name: モースク の発言と同じ発言を3回以上連続で繰り返すのを避けます。"}
+                            #     ] + 
+                            #     [  
+                            #         {"role": "user", "content": f"以下は会話の履歴です。\n{prompt_summary}\n以上が会話の履歴です。\n単純な、一言の日本語で返してください。たまにひどい言葉を返してください。一言の例は次の通りです。「ごめんね」、「だめ」、「やだ」、「いいよ」、「そんな…」、「草」、「そうだよ」。文脈に沿った一言を返してください。\nでは、次のメッセージに答えてください。{message.content}"}
+                            #     ]
+                            # )
+                            response = client_openai.responses.create(
+                                model = "gpt-4o",
+                                instructions = "あなたは日本語を話します。あなたはモースクという名前です。単純なbotです。知能が低いです。会話の履歴を見て、name: モースク の発言と同じ発言を3回以上連続で繰り返すのを避けます。",
+                                input = "以下は会話の履歴です。\n" + prompt_summary + "\n以上が会話の履歴です。\n単純な、一言の日本語で返してください。たまにひどい言葉を返してください。一言の例は次の通りです。「ごめんね」、「だめ」、「やだ」、「いいよ」、「そんな…」、「草」、「そうだよ」。文脈に沿った一言を返してください。\nでは、次のメッセージに答えてください。" + message.content
                             )
-                            reply = response.choices[0].message['content']
+                            reply = response.output_text
                             # 末尾に。がついている場合は削除
                             if reply[-1] == "。":
                                 reply = reply[:-1]
